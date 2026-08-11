@@ -63,14 +63,16 @@ func (c BundleConfig) Commands(useSet bool) [][]string {
 // RVMOpenSSLDir returns the directory to pass to bundler's build.openssl config
 // when an RVM install ships its own OpenSSL, or "" when none is detected.
 func RVMOpenSSLDir() string {
-	home := rvmHome()
+	home := RVMHome()
 	if isDir(filepath.Join(home, "usr", "ssl")) {
 		return filepath.Join(home, "usr")
 	}
 	return ""
 }
 
-func rvmHome() string {
+// RVMHome returns the RVM installation directory, preferring the machine-image
+// location, then a per-user install, then the system default.
+func RVMHome() string {
 	if isDir("/opt/circleci/.rvm") {
 		return "/opt/circleci/.rvm"
 	}

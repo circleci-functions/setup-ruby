@@ -1,7 +1,7 @@
 # setup-ruby
 
-A CircleCI function to install Ruby gems with Bundler (with caching), run RSpec, and
-run RuboCop.
+A CircleCI function to install Ruby gems with Bundler (with caching), run RSpec, run
+RuboCop, and install Ruby itself.
 
 Invoke it from a `run:` step. Use the full path and put `--` before the subcommand so the
 CLI passes the remaining flags to the function:
@@ -97,6 +97,29 @@ Gemfile needs `gem 'rubocop'`.
 ```yaml
 - run:
     command: circleci run github.com/circleci-functions/setup-ruby@<version> -- rubocop-check --format progress
+```
+
+## install
+
+Installs Ruby with a version manager: RVM on Linux, rbenv on macOS. It skips the work when
+the requested version is already active. On Linux it installs RVM (importing its signing
+keys) when absent, and handles OpenSSL 1.1 for Ruby 3.0 and earlier. The Ruby environment is
+exported to `$BASH_ENV` so later steps pick it up.
+
+| Flag | Default | Description |
+|---|---|---|
+| `--version` | required | Ruby version to install, e.g. `3.3.0`. |
+| `--openssl-path` | none | Directory of an OpenSSL install to build against (Linux, older Ruby). |
+
+`--version` is a literal version. For a dynamic value, let your own shell expand it in the
+`run:` step, for example `-- install --version "$(cat .ruby-version)"`.
+
+Prefer a Ruby-preinstalled image (such as `cimg/ruby`) where you can; installing Ruby at run
+time is slower and less deterministic.
+
+```yaml
+- run:
+    command: circleci run github.com/circleci-functions/setup-ruby@<version> -- install --version 3.3.0
 ```
 
 ## Platform support
