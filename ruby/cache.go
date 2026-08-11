@@ -107,6 +107,11 @@ func (p CacheKeyParts) RestoreKeys(onlyChecksum bool) []string {
 }
 
 func exists(path string) bool {
-	info, err := os.Stat(path)
+	info, err := os.Stat(path) //nolint:gosec // path is a lock file or known directory
 	return err == nil && !info.IsDir()
+}
+
+func isDir(path string) bool {
+	info, err := os.Stat(path) //nolint:gosec // path is a known directory
+	return err == nil && info.IsDir()
 }

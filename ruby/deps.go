@@ -1,6 +1,10 @@
 package ruby
 
-import "strings"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+)
 
 // DefaultPath is bundler's install path that triggers deployment mode.
 const DefaultPath = "./vendor/bundle"
@@ -54,4 +58,24 @@ func (c BundleConfig) Commands(useSet bool) [][]string {
 		cmds = append(cmds, cmd("build.openssl", "--with-openssl-dir="+c.OpenSSLDir))
 	}
 	return cmds
+}
+
+// RVMOpenSSLDir returns the directory to pass to bundler's build.openssl config
+// when an RVM install ships its own OpenSSL, or "" when none is detected.
+func RVMOpenSSLDir() string {
+	home := rvmHome()
+	if isDir(filepath.Join(home, "usr", "ssl")) {
+		return filepath.Join(home, "usr")
+	}
+	return ""
+}
+
+func rvmHome() string {
+	if isDir("/opt/circleci/.rvm") {
+		return "/opt/circleci/.rvm"
+	}
+	if home := filepath.Join(os.Getenv("HOME"), ".rvm"); exists(filepath.Join(home, "scripts", "rvm")) {
+		return home
+	}
+	return "/usr/local/rvm"
 }

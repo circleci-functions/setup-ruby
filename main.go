@@ -12,7 +12,9 @@ import (
 	"github.com/circleci-functions/toolkit/sdk"
 )
 
-type cli struct{}
+type cli struct {
+	InstallDeps installDepsCmd `cmd:"" help:"Install gems with Bundler, with optional caching."`
+}
 
 func main() {
 	sdk.Run(run)
