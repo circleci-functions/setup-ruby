@@ -7,6 +7,9 @@ executors:
   go:
     docker:
       - image: cimg/go:1.26
+  ruby:
+    docker:
+      - image: cimg/ruby:3.3
 
 jobs:
   test:
@@ -41,6 +44,25 @@ jobs:
           paths:
             - dist
 
+  # Runs the freshly cross-compiled binary against a real Ruby image and
+  # asserts it actually installs gems, not just that it exits zero.
+  smoke-test:
+    executor: ruby
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: install-deps installs gems
+          command: |
+            BIN="$PWD/dist/setup-ruby/linux/amd64/setup-ruby"
+            APP=$(mktemp -d)
+            cd "$APP"
+            printf 'source "https://rubygems.org"\ngem "rake"\n' > Gemfile
+            bundle lock
+            "$BIN" install-deps --app-dir "$APP"
+            bundle exec rake --version
+
   publish:
     executor: go
     steps:
@@ -74,8 +96,14 @@ workflows:
           filters:
             tags:
               only: /.*/
+      - smoke-test:
+          requires: [build]
+          context: [github-readonly]
+          filters:
+            tags:
+              only: /.*/
       - publish:
-          requires: [test, build]
+          requires: [test, build, smoke-test]
           context: [functions-publisher, github-readonly]
           filters:
             tags:
