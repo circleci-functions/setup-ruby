@@ -14,6 +14,7 @@ import (
 
 type cli struct {
 	InstallDeps installDepsCmd `cmd:"" help:"Install gems with Bundler, with optional caching."`
+	RspecTest   rspecTestCmd   `cmd:"" help:"Run RSpec with test splitting and JUnit output."`
 }
 
 func main() {
