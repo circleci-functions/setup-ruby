@@ -12,9 +12,9 @@ func TestCLI_Describe(t *testing.T) {
 	assert.NilError(t, err, "output: %s", out)
 
 	for _, want := range []string{
-		"install-deps", "rspec-test", "rubocop-check",
+		"install-deps", "rspec-test", "rubocop-check", "install",
 		"with-cache", "include-arch-in-cache-key", "only-use-gemfile-checksum-cache-key",
-		"rerun-fail", "parallel",
+		"rerun-fail", "parallel", "openssl-path",
 	} {
 		assert.Assert(t, strings.Contains(out, want), "descriptor missing %q; got: %s", want, out)
 	}

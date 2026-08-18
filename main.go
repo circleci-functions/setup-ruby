@@ -16,6 +16,7 @@ type cli struct {
 	InstallDeps  installDepsCmd  `cmd:"" help:"Install gems with Bundler, with optional caching."`
 	RspecTest    rspecTestCmd    `cmd:"" help:"Run RSpec with test splitting and JUnit output."`
 	RubocopCheck rubocopCheckCmd `cmd:"" help:"Run RuboCop and write a JUnit report."`
+	Install      installCmd      `cmd:"" help:"Install Ruby via a version manager (RVM on Linux, rbenv on macOS)."`
 }
 
 func main() {
