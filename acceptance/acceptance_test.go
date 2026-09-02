@@ -65,7 +65,7 @@ func copyFixture(t *testing.T, dst string) {
 }
 
 // fakeRubyToolsPath writes stub `bundle` and `gem` executables into a temp dir
-// and returns it, so install-deps can be exercised without a real Ruby or the
+// and returns it, so the install can be exercised without a real Ruby or the
 // network. The stub `bundle` fails the `config set` probe (selecting the modern
 // form), reports a version, fails `check` (so install runs) and otherwise
 // succeeds, creating the vendor/bundle directory on install.

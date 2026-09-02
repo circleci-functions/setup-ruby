@@ -53,14 +53,14 @@ jobs:
       - attach_workspace:
           at: .
       - run:
-          name: install-deps installs gems
+          name: setup-ruby installs gems
           command: |
             BIN="$PWD/dist/setup-ruby/linux/amd64/setup-ruby"
             APP=$(mktemp -d)
             cd "$APP"
             printf 'source "https://rubygems.org"\ngem "rake"\n' > Gemfile
             bundle lock
-            "$BIN" install-deps --app-dir "$APP"
+            "$BIN" --app-dir "$APP"
             bundle exec rake --version
 
   publish:
