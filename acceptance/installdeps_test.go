@@ -74,7 +74,7 @@ func TestInstallDeps_CacheSaveAndRestore(t *testing.T) {
 	appDir := t.TempDir()
 	copyFixture(t, appDir)
 
-	out, err := run(t, installDepsEnv(t, url), "install-deps", "--app-dir", appDir)
+	out, err := run(t, installDepsEnv(t, url), "--app-dir", appDir)
 	assert.NilError(t, err, "output: %s", out)
 
 	assert.Equal(t, len(rec.restores), 1)
@@ -91,12 +91,12 @@ func TestInstallDeps_CacheSaveAndRestore(t *testing.T) {
 	assert.DeepEqual(t, rec.saves[0].Paths, []string{filepath.Join(appDir, "vendor", "bundle")})
 }
 
-func TestInstallDeps_NoWithCache(t *testing.T) {
+func TestInstallDeps_CacheDisabled(t *testing.T) {
 	rec, url := newCacheRecorder(t)
 	appDir := t.TempDir()
 	copyFixture(t, appDir)
 
-	out, err := run(t, installDepsEnv(t, url), "install-deps", "--app-dir", appDir, "--no-with-cache")
+	out, err := run(t, installDepsEnv(t, url), "--app-dir", appDir, "--cache=false")
 	assert.NilError(t, err, "output: %s", out)
 
 	assert.Equal(t, len(rec.restores), 0)
@@ -108,7 +108,7 @@ func TestInstallDeps_OnlyChecksumKey(t *testing.T) {
 	appDir := t.TempDir()
 	copyFixture(t, appDir)
 
-	out, err := run(t, installDepsEnv(t, url), "install-deps", "--app-dir", appDir, "--only-use-gemfile-checksum-cache-key")
+	out, err := run(t, installDepsEnv(t, url), "--app-dir", appDir, "--only-use-gemfile-checksum-cache-key")
 	assert.NilError(t, err, "output: %s", out)
 
 	assert.Equal(t, len(rec.restores), 1)
@@ -120,8 +120,8 @@ func TestInstallDeps_NoArchNoBranchInKey(t *testing.T) {
 	appDir := t.TempDir()
 	copyFixture(t, appDir)
 
-	out, err := run(t, installDepsEnv(t, url), "install-deps", "--app-dir", appDir,
-		"--no-include-arch-in-cache-key", "--no-include-branch-in-cache-key")
+	out, err := run(t, installDepsEnv(t, url), "--app-dir", appDir,
+		"--include-arch-in-cache-key=false", "--include-branch-in-cache-key=false")
 	assert.NilError(t, err, "output: %s", out)
 
 	exact := rec.restores[0][0]
@@ -140,7 +140,7 @@ func TestInstallDeps_KeyChangesWithLockfile(t *testing.T) {
 		data, rerr := os.ReadFile(lock) //nolint:gosec // fixture path
 		assert.NilError(t, rerr)
 		assert.NilError(t, os.WriteFile(lock, append(data, []byte(suffix)...), 0o600))
-		out, err := run(t, installDepsEnv(t, url), "install-deps", "--app-dir", appDir)
+		out, err := run(t, installDepsEnv(t, url), "--app-dir", appDir)
 		assert.NilError(t, err, "output: %s", out)
 		return rec.restores[len(rec.restores)-1][0]
 	}
@@ -153,7 +153,7 @@ func TestInstallDeps_NoLockfileSkipsCache(t *testing.T) {
 	appDir := t.TempDir()
 	assert.NilError(t, os.WriteFile(filepath.Join(appDir, "Gemfile"), []byte("source 'https://rubygems.org'\n"), 0o600))
 
-	out, err := run(t, installDepsEnv(t, url), "install-deps", "--app-dir", appDir)
+	out, err := run(t, installDepsEnv(t, url), "--app-dir", appDir)
 	assert.NilError(t, err, "output: %s", out)
 	assert.Assert(t, strings.Contains(out, "skipping cache"), "expected skip message; got: %s", out)
 	assert.Equal(t, len(rec.restores), 0)
