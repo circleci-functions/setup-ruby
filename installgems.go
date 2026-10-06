@@ -19,7 +19,6 @@ type installGemsCmd struct {
 	Gemfile                        string `help:"Gemfile name." default:"Gemfile"`
 	Path                           string `help:"Gem install path; the default enables bundler deployment mode." default:"./vendor/bundle"`
 	Key                            string `help:"Cache key prefix." default:"gems-v1"`
-	BundlerVersion                 string `help:"Bundler version to install; detected from the lock file when empty."`
 	CleanBundle                    bool   `help:"Run 'bundle clean --force' after install."`
 	OverrideCacheFile              string `help:"Lock file to use for the cache key instead of the detected one."`
 	Cache                          bool   `help:"Restore the gem cache before installing and save it at the end. Set to false to disable caching." default:"true"`
@@ -69,10 +68,6 @@ func (c *installGemsCmd) Run(ctx context.Context, client *sdk.Client) error {
 		fmt.Fprintf(os.Stderr, "setup-ruby: no lock file found in %s, skipping cache\n", appDir)
 	}
 
-	if err := installBundler(ctx, appDir, lockfile, hasLock, c.BundlerVersion); err != nil {
-		return err
-	}
-
 	gemfileAbs, err := filepath.Abs(filepath.Join(appDir, c.Gemfile))
 	if err != nil {
 		return fmt.Errorf("resolve gemfile: %w", err)
@@ -86,26 +81,6 @@ func (c *installGemsCmd) Run(ctx context.Context, client *sdk.Client) error {
 		sdk.LogCacheErr("save", client.SaveCache(ctx, parts.Exact(), []string{save}))
 	}
 	return nil
-}
-
-func installBundler(ctx context.Context, dir, lockfile string, hasLock bool, override string) error {
-	var content string
-	if hasLock {
-		if b, err := os.ReadFile(lockfile); err == nil { //nolint:gosec // lockfile is a resolved path
-			content = string(b)
-		}
-	}
-	version := ruby.BundlerVersion(content, override)
-	if version == "" {
-		fmt.Fprintln(os.Stderr, "setup-ruby: no bundler version detected, using the installed bundler")
-		return nil
-	}
-	if out, _ := ruby.Output(ctx, dir, "bundle", "version"); strings.Contains(out, version) {
-		fmt.Fprintf(os.Stderr, "setup-ruby: bundler %s already installed\n", version)
-		return nil
-	}
-	fmt.Fprintf(os.Stderr, "setup-ruby: installing bundler %s\n", version)
-	return ruby.Run(ctx, dir, "gem", "install", "bundler:"+version)
 }
 
 func configureAndInstall(ctx context.Context, dir, gemfileAbs, path string, clean bool) error {

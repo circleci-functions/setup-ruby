@@ -9,17 +9,18 @@ import (
 // DefaultPath is bundler's install path that triggers deployment mode.
 const DefaultPath = "./vendor/bundle"
 
-// BundlerVersion returns the Bundler version to install. override wins when
-// non-empty; otherwise it is the last non-empty line of the lock file (the
-// "BUNDLED WITH" version), or "" when the lock file has none.
-func BundlerVersion(lockfile, override string) string {
-	if override != "" {
-		return override
-	}
+// LockedBundler returns the Bundler version a lock file was written with,
+// from its BUNDLED WITH section, or "" when it has none.
+func LockedBundler(lockfile string) string {
 	lines := strings.Split(lockfile, "\n")
-	for i := len(lines) - 1; i >= 0; i-- {
-		if v := strings.TrimSpace(lines[i]); v != "" {
-			return v
+	for i, line := range lines {
+		if strings.TrimSpace(line) != "BUNDLED WITH" {
+			continue
+		}
+		for _, next := range lines[i+1:] {
+			if v := strings.TrimSpace(next); v != "" {
+				return v
+			}
 		}
 	}
 	return ""

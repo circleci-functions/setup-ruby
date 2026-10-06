@@ -45,13 +45,13 @@ func (systemRuby) command(_ context.Context, script string, args ...string) *exe
 	return pathlink.Command(path, args...)
 }
 
-// runScript runs script with args, streaming its output.
-func runScript(ctx context.Context, r rubyRunner, script string, args ...string) error {
-	cmd := r.command(ctx, script, args...)
+// runGem runs r's gem with args, streaming its output.
+func runGem(ctx context.Context, r rubyRunner, args ...string) error {
+	cmd := r.command(ctx, "gem", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%s %s: %w", script, strings.Join(args, " "), err)
+		return fmt.Errorf("gem %s: %w", strings.Join(args, " "), err)
 	}
 	return nil
 }
@@ -74,7 +74,7 @@ func updateRubygems(ctx context.Context, r rubyRunner, want string) error {
 		return nil
 	case "latest":
 		fmt.Fprintln(os.Stderr, "setup-ruby: updating RubyGems to the latest version")
-		return runScript(ctx, r, "gem", "update", "--system")
+		return runGem(ctx, r, "update", "--system")
 	}
 	current, err := scriptOutput(ctx, r, "gem", "--version")
 	if err != nil {
@@ -85,7 +85,7 @@ func updateRubygems(ctx context.Context, r rubyRunner, want string) error {
 		return nil
 	}
 	fmt.Fprintf(os.Stderr, "setup-ruby: updating RubyGems %s to %s\n", current, want)
-	return runScript(ctx, r, "gem", "update", "--system", want)
+	return runGem(ctx, r, "update", "--system", want)
 }
 
 func isWindows() bool {

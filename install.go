@@ -27,8 +27,9 @@ var live = rubydist.DefaultLive
 type installCmd struct {
 	RubyVersion      string `help:"Ruby version to install: an exact version (3.4.1), a major or major.minor prefix (3, 3.4) or latest. Defaults to the version in .ruby-version, .tool-versions or mise.toml in --working-directory, then the Ruby already on PATH, then the newest stable release."`
 	RubyVersionFile  string `help:"File to read the Ruby version from: .ruby-version, .tool-versions or mise.toml." type:"path"`
-	WorkingDirectory string `help:"Directory to look for version files in." default:"."`
+	WorkingDirectory string `help:"Directory to look for version files and Gemfile.lock in." default:"."`
 	Rubygems         string `help:"RubyGems version: default keeps the one Ruby ships, latest runs gem update --system, and a version such as 3.6.9 updates to it when it is newer than the one Ruby ships." default:"default"`
+	Bundler          string `help:"Bundler version to install: Gemfile.lock installs the one the lock file in --working-directory was written with, default keeps the one Ruby ships, latest installs the newest, none installs none, and a version such as 2.6 or 2.6.9 installs the newest matching release." default:"Gemfile.lock"`
 	WindowsToolchain string `help:"On Windows, default installs the MSYS2 build tools RubyInstaller compiles native extensions with, and none skips them." default:"default" enum:"default,none"`
 	Cache            bool   `help:"Restore the Ruby install from the job cache, and save it after a fresh download. Set to false to disable caching." default:"true"`
 	InstallDir       string `help:"Directory to install Ruby versions under." default:"~/.cache/setup-ruby" hidden:""`
@@ -49,7 +50,7 @@ func (c *installCmd) Run(ctx context.Context, client *sdk.Client) error {
 		return err
 	}
 	if !ok {
-		return c.setUp(ctx, systemRuby{})
+		return c.setUp(ctx, systemRuby{}, wd)
 	}
 
 	platform, err := rubydist.Host()
@@ -66,7 +67,7 @@ func (c *installCmd) Run(ctx context.Context, client *sdk.Client) error {
 	if err := rubypath.RemoveGemHook(root, version); err != nil {
 		return err
 	}
-	if err := c.setUp(ctx, installedRuby{root: root}); err != nil {
+	if err := c.setUp(ctx, installedRuby{root: root}, wd); err != nil {
 		return err
 	}
 
@@ -82,12 +83,16 @@ func (c *installCmd) Run(ctx context.Context, client *sdk.Client) error {
 	return reportGemExecutables(root, version, linked.Dir)
 }
 
-// setUp applies the settings that hold for whichever Ruby the job uses.
-func (c *installCmd) setUp(ctx context.Context, r rubyRunner) error {
+// setUp applies the settings that hold for whichever Ruby the job uses, for
+// the project in wd.
+func (c *installCmd) setUp(ctx context.Context, r rubyRunner, wd string) error {
 	if err := writeGemrc(); err != nil {
 		return err
 	}
-	return updateRubygems(ctx, r, c.Rubygems)
+	if err := updateRubygems(ctx, r, c.Rubygems); err != nil {
+		return err
+	}
+	return installBundler(ctx, r, c.Bundler, wd)
 }
 
 // reportLinked says where Link made the install at root resolvable from.
