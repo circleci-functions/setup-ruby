@@ -28,7 +28,7 @@ type Spec struct {
 var (
 	exactVersion   = regexp.MustCompile(`^\d+\.\d+\.\d+(-[a-z]+\d*)?$`)
 	partialVersion = regexp.MustCompile(`^\d+(\.\d+)?$`)
-	engineVersion  = regexp.MustCompile(`^([a-z][a-z+]*)(-|$)`)
+	engineVersion  = regexp.MustCompile(`^(jruby|truffleruby(?:\+graalvm)?|mruby|rbx)(-|$)`)
 )
 
 // unsupported are names ruby/setup-ruby accepts for development builds,

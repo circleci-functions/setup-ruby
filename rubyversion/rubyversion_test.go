@@ -16,6 +16,7 @@ func TestParse_Errors(t *testing.T) {
 		{raw: "truffleruby", wantErr: "only CRuby is supported, not truffleruby"},
 		{raw: "truffleruby+graalvm-24.1.0", wantErr: "only CRuby is supported, not truffleruby+graalvm"},
 		{raw: ">= 3.2", wantErr: "invalid ruby version"},
+		{raw: "banana", wantErr: "invalid ruby version"},
 		{raw: "3.4.1.2", wantErr: "invalid ruby version"},
 	}
 	for _, tc := range tests {
