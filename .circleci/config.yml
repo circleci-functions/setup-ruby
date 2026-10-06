@@ -60,7 +60,7 @@ jobs:
             cd "$APP"
             printf 'source "https://rubygems.org"\ngem "rake"\n' > Gemfile
             bundle lock
-            "$BIN" --app-dir "$APP"
+            "$BIN" install-gems --app-dir "$APP"
             bundle exec rake --version
 
   publish:
