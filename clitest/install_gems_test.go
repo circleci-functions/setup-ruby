@@ -1,4 +1,4 @@
-package setupruby_test
+package clitest_test
 
 import (
 	"encoding/json"

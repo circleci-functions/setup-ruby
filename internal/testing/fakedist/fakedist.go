@@ -202,9 +202,9 @@ func checksum(rel Release) string {
 }
 
 // Archive returns the archive of rel's build, laid out like a real one under
-// its root directory. bin/ruby, bin/gem and bin/bundle are shell scripts that
-// report versions as the real ones do, and append any other invocation to
-// $STUB_LOG, so a test can run them.
+// its root directory. Its executables are shell scripts that report versions
+// as the real ones do, and append any other invocation to $STUB_LOG, so a
+// test can run them.
 func Archive(rel Release) []byte {
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
@@ -222,7 +222,7 @@ func Archive(rel Release) []byte {
 	for _, d := range []string{"", "bin/", "lib/", "lib/ruby/"} {
 		dir(d)
 	}
-	file("bin/ruby", script("ruby", "ruby "+rel.Version+" (2026-01-01 revision 0000000000) +PRISM [fake]"), 0755)
+	file("bin/ruby", script("ruby", "ruby "+strings.ReplaceAll(rel.Version, "-", "")+" (2026-01-01 revision 0000000000) +PRISM [fake]"), 0755)
 	file("bin/gem", script("gem", "3.6.9"), 0755)
 	file("bin/bundle", script("bundle", "Bundler version 2.6.9"), 0755)
 	for _, name := range []string{"bundler", "irb", "rake", "erb", "rdoc", "ri"} {
@@ -236,8 +236,10 @@ func Archive(rel Release) []byte {
 
 // script is a stand-in for one of a Ruby install's executables: it prints
 // version for --version, -v or version, and otherwise logs how it was run.
+// gem list fails, as it does when what it is asked about is not installed.
 func script(name, version string) string {
 	return `#!/bin/sh
+[ "$1" = list ] && printf '` + name + ` %s\n' "$*" >> "${STUB_LOG:-/dev/null}" && exit 1
 case "$1" in
 --version|-v|version) echo "` + version + `" ;;
 *) [ -n "$STUB_LOG" ] && printf '` + name + ` %s\n' "$*" >> "$STUB_LOG" ;;
