@@ -21,6 +21,11 @@ tasks:
     cmds:
       - go tool gotestsum -- ./...
 
+  update-downloads:
+    desc: Refresh the built-in list of Ruby builds from their GitHub releases (set GITHUB_TOKEN to avoid the API's rate limit)
+    cmds:
+      - go run ./internal/cmd/update-downloads -o rubydist/downloads.json
+
   tidy:
     desc: Tidy go.mod / go.sum
     cmds:
