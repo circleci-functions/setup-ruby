@@ -6,7 +6,6 @@ package main
 
 import (
 	"context"
-	"errors"
 
 	"github.com/alecthomas/kong"
 
@@ -34,10 +33,4 @@ func run(ctx context.Context, client *sdk.Client) error {
 	kCtx.BindTo(ctx, (*context.Context)(nil))
 	kCtx.Bind(client)
 	return kCtx.Run(ctx)
-}
-
-type installCmd struct{}
-
-func (c *installCmd) Run() error {
-	return errors.New("installing Ruby is not implemented yet; run install-gems")
 }
