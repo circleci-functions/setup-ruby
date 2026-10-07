@@ -106,7 +106,7 @@ func (c *installCmd) reportLinked(version, root string, linked rubypath.Result) 
 	}
 	for _, name := range []string{"gem", "bundle"} {
 		if other := rubypath.Shadowed(linked.Dir, name); other != "" {
-			fmt.Fprintf(os.Stderr, "setup-ruby: warning: %s resolves from %s, ahead of %s; run it with ruby -S %s for the Ruby installed here\n", name, other, linked.Dir, name)
+			fmt.Fprintf(os.Stderr, "setup-ruby: warning: %s resolves from %s, ahead of %s; run it as ruby -S %s for the Ruby installed here\n", name, other, linked.Dir, name)
 		}
 	}
 }
@@ -119,7 +119,7 @@ func reportGemExecutables(root, version, linkedDir string) error {
 		return err
 	}
 	if !onPath {
-		fmt.Fprintf(os.Stderr, "setup-ruby: warning: executables from gem install land in %s, which is not on PATH; run them with bundle exec or ruby -S\n", dir)
+		fmt.Fprintf(os.Stderr, "setup-ruby: warning: executables from gem install land in %s, which is not on PATH; run them by their path there, or with bundle exec\n", dir)
 		return nil
 	}
 	fmt.Fprintf(os.Stderr, "setup-ruby: executables from gem install land in %s, on PATH\n", dir)

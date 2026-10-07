@@ -75,9 +75,10 @@ func TestAcceptance_InstallsOntoTheRealPath(t *testing.T) {
 			got, err := sdktest.LaterStep(t, name, "--version")
 			assert.NilError(t, err, "a later step could not resolve %s: %s", name, got)
 		}
-		got, err = sdktest.LaterStep(t, "gem", "env", "rubygemsdir")
+		got, err = sdktest.LaterStep(t, "gem", "env")
 		assert.NilError(t, err, "gem env: %s", got)
-		assert.Assert(t, isWithin(strings.TrimSpace(got), s.InstallDir), "gem belongs to another Ruby: %s", got)
+		gemRuby := find(got, `RUBY EXECUTABLE: (.+)$`)
+		assert.Assert(t, isWithin(gemRuby, s.InstallDir), "gem belongs to another Ruby: %s", got)
 	})
 
 	if runtime.GOOS == "windows" {
@@ -91,12 +92,8 @@ func TestAcceptance_InstallsOntoTheRealPath(t *testing.T) {
 	t.Run("GemInstallsResolveInALaterStepWhereTheyCan", func(t *testing.T) {
 		got, err := sdktest.LaterStep(t, "gem", "install", "dotenv", "-v", "3.1.8")
 		assert.NilError(t, err, "gem install: %s", got)
-		if strings.Contains(out, "which is not on PATH") {
-			t.Logf("gem install's executables are not on PATH on this executor; checking ruby -S instead")
-			got, err = sdktest.LaterStep(t, "ruby", "-S", "dotenv", "--version")
-		} else {
-			got, err = sdktest.LaterStep(t, "dotenv", "--version")
-		}
+		skip.If(t, strings.Contains(out, "which is not on PATH"), "gem install's executables are not on PATH on this executor")
+		got, err = sdktest.LaterStep(t, "dotenv", "--version")
 		assert.NilError(t, err, "a later step could not run what gem install installed: %s", got)
 		assert.Assert(t, strings.Contains(got, "3.1.8"), "dotenv --version: %s", got)
 	})

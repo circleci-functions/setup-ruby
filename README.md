@@ -94,10 +94,11 @@ installs beside `ruby` on `PATH`, so `gem install rubocop` makes `rubocop`
 resolve by name in later steps. Where `$GEM_HOME` is set, they go to
 `$GEM_HOME/bin` instead.
 
-On Windows, and where the directory `ruby` is linked into needs elevated
-permissions to write to, they stay in the install's own `bin` directory, which
-is not on `PATH`. setup-ruby warns when that happens; run them with
-`bundle exec` or `ruby -S` instead.
+Where the directory `ruby` is linked into needs elevated permissions to write
+to, they stay in the install's own `bin` directory, which is not on `PATH`.
+setup-ruby warns when that happens; run them by their path there, or with
+`bundle exec`. Under rbenv, gem install rehashes rbenv's shims instead, so the
+executables resolve through them.
 
 ### rbenv
 
@@ -221,4 +222,6 @@ with a build for the machine it runs on.
 - **macOS on Intel** has no builds; on one, an install fails, though
   `install-gems` works with a Ruby that is already there.
 - **Windows** gets `ruby`, `gem`, `bundle` and the other executables as shims
-  that work from cmd, PowerShell and Git Bash.
+  that work from cmd, PowerShell and Git Bash. The `.bat` wrappers `gem
+  install` and `bundle install` write run the installed `ruby.exe` by its
+  path.

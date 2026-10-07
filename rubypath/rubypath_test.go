@@ -2,6 +2,7 @@ package rubypath
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -161,6 +162,7 @@ func TestGemExecutables(t *testing.T) {
 	data, err := os.ReadFile(hook)
 	assert.NilError(t, err)
 	assert.Assert(t, strings.Contains(string(data), "def self.default_bindir\n    '"+linked+"'"), "hook: %s", data)
+	assert.Assert(t, strings.Contains(string(data), loadShippedHook), "hook should load the install's own first: %s", data)
 
 	t.Setenv("GEM_HOME", filepath.Join(t.TempDir(), "gems"))
 	dir, onPath, err = GemExecutables(root, "3.4.1", linked)
@@ -184,4 +186,35 @@ func TestRemoveGemHook_LeavesAnotherHook(t *testing.T) {
 
 func TestGemHook_Prerelease(t *testing.T) {
 	assert.Equal(t, gemHook("/r", "3.5.0-preview1"), filepath.Join("/r", "lib", "ruby", "site_ruby", "3.5.0", "rubygems", "defaults", "operating_system.rb"))
+}
+
+func TestLink_RbenvRehashesAfterGemInstall(t *testing.T) {
+	install := fakeInstall(t)
+	root := fakerbenv.New(t, "3.3.0")
+
+	_, err := Link(Options{Root: install, Version: "3.4.1", Path: filepath.Join(root, "shims")})
+	assert.NilError(t, err)
+	data, err := os.ReadFile(gemHook(install, "3.4.1"))
+	assert.NilError(t, err)
+	want := `system({ "RBENV_ROOT" => '` + root + `' }, '` + filepath.Join(root, "bin", "rbenv") + `', "rehash")`
+	assert.Assert(t, strings.Contains(string(data), want), "hook: %s", data)
+}
+
+// TestGemHooks_AreValidRuby checks every hook setup-ruby writes parses, with
+// whatever Ruby is on PATH.
+func TestGemHooks_AreValidRuby(t *testing.T) {
+	ruby, err := exec.LookPath("ruby")
+	skip.If(t, err != nil, "no ruby on PATH to check the hooks with")
+	for name, body := range map[string]string{
+		"bin dir":       "module Gem\n  def self.default_bindir\n    " + rubyString(`C:\it's`) + "\n  end\nend\n",
+		"windows stubs": absoluteWindowsStubs,
+		"rbenv":         "Gem.post_install do |installer|\n  system({ \"RBENV_ROOT\" => 'r' }, 'b', \"rehash\") unless installer.spec.executables.empty?\nend\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			file := filepath.Join(t.TempDir(), "operating_system.rb")
+			assert.NilError(t, os.WriteFile(file, []byte(hookMarker+".\n"+loadShippedHook+body), 0600))
+			out, err := exec.Command(ruby, "-c", file).CombinedOutput()
+			assert.NilError(t, err, "%s", out)
+		})
+	}
 }

@@ -10,9 +10,31 @@ import (
 	"github.com/circleci-functions/toolkit/pathlink"
 )
 
-// hookMarker starts the RubyGems hook GemExecutables writes, so a later run
-// can tell its own hook from one the install shipped.
+// hookMarker starts the RubyGems hook setup-ruby writes, so a later run can
+// tell its own hook from one the install shipped.
 const hookMarker = "# Written by setup-ruby"
+
+// loadShippedHook has setup-ruby's hook load the one the install ships in its
+// standard library first, as RubyInstaller's does: RubyGems loads only the
+// first operating_system.rb on the load path, and the site directory comes
+// first.
+const loadShippedHook = `shipped = File.join(RbConfig::CONFIG["rubylibdir"], "rubygems", "defaults", "operating_system.rb")
+load shipped if File.exist?(shipped)
+`
+
+// absoluteWindowsStubs has gem install's .bat wrappers run this install's
+// ruby.exe by absolute path. RubyGems otherwise writes a bare ruby.exe into
+// a wrapper outside the install, such as one in the linked directory or in
+// a bundle's path, and PATH holds only a shim of that name.
+const absoluteWindowsStubs = `module SetupRubyWindowsStubs
+  def windows_stub_script(_bindir, _bin_file_name)
+    "@ECHO OFF\r\n@\"#{Gem.ruby.tr('/', '\\')}\" \"%~dpn0\" %*\r\n"
+  end
+end
+Gem.pre_install do |_installer|
+  Gem::Installer.prepend(SetupRubyWindowsStubs) unless Gem::Installer < SetupRubyWindowsStubs
+end
+`
 
 // GemExecutables sets where gem install puts the executables of the gems it
 // installs into the install at root, and reports that directory and whether
@@ -22,32 +44,40 @@ const hookMarker = "# Written by setup-ruby"
 // so they resolve by name like ruby itself. It does that through RubyGems'
 // operating_system.rb hook in the install's own site directory, which no
 // other Ruby reads. Where $GEM_HOME is set it leaves gem install to put them
-// in $GEM_HOME/bin. On Windows, whose builds ship a hook of their own, and
-// where linkedDir needs elevation to write to, they stay in the install's bin
-// directory.
+// in $GEM_HOME/bin, and where linkedDir needs elevation to write to, in the
+// install's bin directory.
 func GemExecutables(root, version, linkedDir string) (dir string, onPath bool, err error) {
 	if home := os.Getenv("GEM_HOME"); home != "" {
 		bin := filepath.Join(home, "bin")
-		return bin, onSearchPath(bin), RemoveGemHook(root, version)
+		return bin, onSearchPath(bin), writeGemHook(root, version, "")
 	}
-	if runtime.GOOS == "windows" || !pathlink.Writable(linkedDir) {
-		return BinDir(root), false, RemoveGemHook(root, version)
+	if !pathlink.Writable(linkedDir) {
+		return BinDir(root), false, writeGemHook(root, version, "")
+	}
+	body := "module Gem\n  def self.default_bindir\n    " + rubyString(linkedDir) + "\n  end\nend\n"
+	return linkedDir, true, writeGemHook(root, version, body)
+}
+
+// writeGemHook writes body as the install's RubyGems hook, after the code
+// that keeps the install's own hook working, and on Windows the code that
+// keeps gem install's wrappers working off the install's bin directory.
+func writeGemHook(root, version, body string) error {
+	if runtime.GOOS == "windows" {
+		body = absoluteWindowsStubs + body
+	}
+	if body == "" {
+		return RemoveGemHook(root, version)
 	}
 	hook := gemHook(root, version)
 	if err := os.MkdirAll(filepath.Dir(hook), 0750); err != nil {
-		return "", false, err
+		return err
 	}
-	quoted := strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(linkedDir)
-	content := hookMarker + ": gem install puts executables beside the ruby linked onto PATH.\n" +
-		"module Gem\n  def self.default_bindir\n    '" + quoted + "'\n  end\nend\n"
-	if err := os.WriteFile(hook, []byte(content), 0644); err != nil { //nolint:gosec // read by Ruby, not secret
-		return "", false, err
-	}
-	return linkedDir, true, nil
+	content := hookMarker + ".\n" + loadShippedHook + body
+	return os.WriteFile(hook, []byte(content), 0644) //nolint:gosec // read by Ruby, not secret
 }
 
-// RemoveGemHook removes the hook GemExecutables wrote into the install at
-// root, if an earlier run left one.
+// RemoveGemHook removes the hook setup-ruby wrote into the install at root,
+// if an earlier run left one.
 func RemoveGemHook(root, version string) error {
 	hook := gemHook(root, version)
 	data, err := os.ReadFile(hook) //nolint:gosec // a path inside the install
@@ -67,6 +97,11 @@ func gemHook(root, version string) string {
 	parts := strings.SplitN(strings.SplitN(version, "-", 2)[0], ".", 3)
 	abi := parts[0] + "." + parts[1] + ".0"
 	return filepath.Join(root, "lib", "ruby", "site_ruby", abi, "rubygems", "defaults", "operating_system.rb")
+}
+
+// rubyString quotes s as a single-quoted Ruby string literal.
+func rubyString(s string) string {
+	return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(s) + "'"
 }
 
 func onSearchPath(dir string) bool {
