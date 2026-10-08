@@ -6,25 +6,22 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-func TestBundlerVersion(t *testing.T) {
-	lock := "GEM\n  remote: https://rubygems.org/\n\nBUNDLED WITH\n   2.4.10\n"
-
+func TestLockedBundler(t *testing.T) {
 	tests := []struct {
 		name     string
 		lockfile string
-		override string
 		want     string
 	}{
-		{name: "from lockfile last line", lockfile: lock, want: "2.4.10"},
-		{name: "override wins", lockfile: lock, override: "2.5.0", want: "2.5.0"},
-		{name: "empty lockfile", lockfile: "", want: ""},
+		{name: "bundled with", lockfile: "GEM\n  remote: https://rubygems.org/\n\nBUNDLED WITH\n   2.4.10\n", want: "2.4.10"},
 		{name: "trailing blank lines", lockfile: "BUNDLED WITH\n   2.3.1\n\n\n", want: "2.3.1"},
-		{name: "no lockfile but override", lockfile: "", override: "2.6.2", want: "2.6.2"},
+		{name: "crlf", lockfile: "BUNDLED WITH\r\n   2.6.2\r\n", want: "2.6.2"},
+		{name: "no bundled with", lockfile: "DEPENDENCIES\n  rake\n", want: ""},
+		{name: "empty", lockfile: "", want: ""},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, BundlerVersion(tc.lockfile, tc.override), tc.want)
+			assert.Equal(t, LockedBundler(tc.lockfile), tc.want)
 		})
 	}
 }

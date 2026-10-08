@@ -1,14 +1,21 @@
-package setupruby_test
+// Package clitest_test exercises the setup-ruby CLI contract end to end
+// against fakes: a fake CircleCI cache server, a fake server of Ruby builds
+// whose executables are shell scripts, and stub bundle and gem executables.
+// It is hermetic -- no real Ruby and no network. Real installs are covered by
+// acceptance/.
+package clitest_test
 
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"gotest.tools/v3/assert"
 
+	"github.com/circleci-functions/toolkit/sdk/sdktest"
 	"github.com/circleci-functions/toolkit/testing/compiler"
 	"github.com/circleci-functions/toolkit/testing/runner"
 )
@@ -47,6 +54,22 @@ func runTests(m *testing.M) (int, error) {
 func run(t *testing.T, extraEnv map[string]string, args ...string) (string, error) {
 	t.Helper()
 	r := runner.New(t, binaryPath, runner.WithUnsafeOSEnvVars(), runner.WithUnsafeAdditionalEnvVars(extraEnv))
+	_, err := r.Run(args...)
+	return r.StdoutString() + r.StderrString(), err
+}
+
+// runIn runs the binary in s's environment, with extraEnv applied on top and
+// dir as its working directory. The sandbox keeps an install out of the
+// developer's real home directory and away from any cache it did not set up.
+func runIn(t *testing.T, s *sdktest.Sandbox, dir string, extraEnv map[string]string, args ...string) (string, error) {
+	t.Helper()
+	env := s.Env()
+	maps.Copy(env, extraEnv)
+	opts := []runner.Opt{runner.WithSandboxEnv(env)}
+	if dir != "" {
+		opts = append(opts, runner.WithCmdDir(dir))
+	}
+	r := runner.New(t, binaryPath, opts...)
 	_, err := r.Run(args...)
 	return r.StdoutString() + r.StderrString(), err
 }
