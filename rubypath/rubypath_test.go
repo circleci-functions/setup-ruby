@@ -178,6 +178,20 @@ func TestLink_RbenvAliases(t *testing.T) {
 	}
 }
 
+func TestRunsFrom(t *testing.T) {
+	skip.If(t, runtime.GOOS == "windows", "the fake ruby is a shell script")
+	want := filepath.Join(fakeInstall(t), "bin", "ruby")
+	shim := func(runs string) string {
+		bin := filepath.Join(t.TempDir(), "ruby")
+		assert.NilError(t, os.WriteFile(bin, []byte("#!/bin/sh\nprintf '%s' '"+runs+"'\n"), 0700)) //nolint:gosec // must be executable
+		return bin
+	}
+
+	assert.NilError(t, runsFrom(shim(want), want))
+	other := filepath.Join(fakeInstall(t), "bin", "ruby")
+	assert.ErrorContains(t, runsFrom(shim(other), want), "runs "+other+" rather than "+want)
+}
+
 func TestGemExecutables(t *testing.T) {
 	skip.If(t, runtime.GOOS == "windows", "Windows builds keep gem executables in the install")
 	t.Setenv("GEM_HOME", "")

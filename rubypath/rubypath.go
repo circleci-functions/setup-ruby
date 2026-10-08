@@ -131,17 +131,20 @@ func Shadowed(dir, name string) string {
 	return dirs[i]
 }
 
-// verify accepts only a ruby reporting version and, on Unix, resolving to
-// this install's own, so a preinstalled ruby that happens to answer the same
-// does not pass for it. On Windows the links are shims that call ruby.exe by
-// absolute path, so there only the version can identify them.
+// verify accepts only a ruby reporting version that is this install's own, so
+// a preinstalled ruby that happens to answer the same does not pass for it.
+// On Windows the links are shims that call ruby.exe by absolute path, which
+// no file comparison sees through, so there ruby is asked where it runs from.
 func verify(from, version string) func(string) error {
 	want := filepath.Join(from, "ruby")
 	return func(bin string) error {
 		if err := reportsVersion(bin, "", version); err != nil {
 			return err
 		}
-		if runtime.GOOS != "windows" && !sameFile(bin, want) {
+		if runtime.GOOS == "windows" {
+			return runsFrom(bin, want+".exe")
+		}
+		if !sameFile(bin, want) {
 			return fmt.Errorf("is not %s", want)
 		}
 		return nil
@@ -160,6 +163,19 @@ func reportsVersion(bin, dir, version string) error {
 	got := strings.TrimSpace(string(out))
 	if !strings.HasPrefix(got, "ruby "+strings.ReplaceAll(version, "-", "")+" ") {
 		return fmt.Errorf("reports %q rather than Ruby %s", got, version)
+	}
+	return nil
+}
+
+// runsFrom checks the ruby at bin, however it gets there, is the interpreter
+// at want.
+func runsFrom(bin, want string) error {
+	out, err := pathlink.Command(bin, "-e", "print(RbConfig.ruby)").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to run: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	if got := strings.TrimSpace(string(out)); !sameFile(got, want) {
+		return fmt.Errorf("runs %s rather than %s", got, want)
 	}
 	return nil
 }
