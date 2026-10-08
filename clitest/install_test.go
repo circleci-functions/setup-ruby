@@ -1,6 +1,9 @@
 package clitest_test
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -337,25 +340,95 @@ func TestCLI_Install_RerunReusesInstall(t *testing.T) {
 }
 
 // TestCLI_Install_RebuildReplacesInstall covers a version republished with a
-// fixed build: the install an earlier job cached may not pass for the new
-// build, and the new build must be cached in turn.
+// fixed build: neither the install an earlier run left nor the one it cached
+// may pass for the new build, and the new build must be cached in turn.
 func TestCLI_Install_RebuildReplacesInstall(t *testing.T) {
-	first, s, binDir := installEnv(t)
-	out, err := runIn(t, s, "", nil, installArgs(first, binDir, "--ruby-version", "3.4.1")...)
-	assert.NilError(t, err, "output: %s", out)
-	assert.NilError(t, os.RemoveAll(filepath.Join(s.Home, ".cache", "setup-ruby")))
+	for _, tc := range []struct {
+		name          string
+		freshExecutor bool
+	}{
+		{name: "rerun"},
+		{name: "fresh executor", freshExecutor: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			first, s, binDir := installEnv(t)
+			out, err := runIn(t, s, "", nil, installArgs(first, binDir, "--ruby-version", "3.4.1")...)
+			assert.NilError(t, err, "output: %s", out)
+			if tc.freshExecutor {
+				assert.NilError(t, os.RemoveAll(filepath.Join(s.Home, ".cache", "setup-ruby")))
+			}
 
-	second := fakedist.New(t, fakedist.Release{Version: "3.4.1", Rebuild: 1})
-	out, err = runIn(t, s, "", nil, installArgs(second, binDir, "--ruby-version", "3.4.1")...)
-	assert.NilError(t, err, "output: %s", out)
-	assert.Equal(t, second.Downloads(), 1, "expected the rebuild to be downloaded; output: %s", out)
-	_, err = os.Stat(filepath.Join(installRoot(t, s, "3.4.1"), "REBUILD"))
-	assert.NilError(t, err, "expected the rebuild to be installed")
+			rebuilt := fakedist.Release{Version: "3.4.1", Rebuild: 1}
+			second := fakedist.New(t, rebuilt)
+			out, err = runIn(t, s, "", nil, installArgs(second, binDir, "--ruby-version", "3.4.1")...)
+			assert.NilError(t, err, "output: %s", out)
+			assert.Equal(t, second.Downloads(), 1, "expected the rebuild to be downloaded; output: %s", out)
+			assert.Assert(t, rubydist.Installed(installRoot(t, s, "3.4.1"), second.Build(rebuilt)))
+			if !tc.freshExecutor {
+				return
+			}
 
-	assert.NilError(t, os.RemoveAll(filepath.Join(s.Home, ".cache", "setup-ruby")))
-	out, err = runIn(t, s, "", nil, installArgs(second, binDir, "--ruby-version", "3.4.1")...)
-	assert.NilError(t, err, "output: %s", out)
-	assert.Equal(t, second.Downloads(), 1, "expected the rebuild to be cached; output: %s", out)
+			assert.NilError(t, os.RemoveAll(filepath.Join(s.Home, ".cache", "setup-ruby")))
+			out, err = runIn(t, s, "", nil, installArgs(second, binDir, "--ruby-version", "3.4.1")...)
+			assert.NilError(t, err, "output: %s", out)
+			assert.Equal(t, second.Downloads(), 1, "expected the rebuild to be cached; output: %s", out)
+		})
+	}
+}
+
+// TestCLI_Install_IncompleteRestoreIsDownloaded covers a cache restore that
+// dies part way, leaving an install with a ruby but not the rest of it:
+// whether or not it reports failing, and whether or not the marker of a
+// complete install was among what it restored.
+func TestCLI_Install_IncompleteRestoreIsDownloaded(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		result string
+		marked bool
+	}{
+		{name: "reported failing", result: "failed", marked: true},
+		{name: "unmarked", result: "success"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, s, binDir := installEnv(t)
+			root := installRoot(t, s, "3.4.1")
+			marker := ""
+			if tc.marked {
+				marker = srv.Build(fakedist.Release{Version: "3.4.1"}).SHA256
+			}
+			pluginURL := incompleteRestore(t, root, marker, tc.result)
+
+			out, err := runIn(t, s, "", map[string]string{"CIRCLECI_PLUGIN_URL": pluginURL}, installArgs(srv, binDir, "--ruby-version", "3.4.1")...)
+			assert.NilError(t, err, "output: %s", out)
+			assert.Equal(t, srv.Downloads(), 1, "output: %s", out)
+			assert.Assert(t, !strings.Contains(out, "restored Ruby"), "output: %s", out)
+			assert.Assert(t, rubydist.Installed(root, srv.Build(fakedist.Release{Version: "3.4.1"})))
+		})
+	}
+}
+
+// incompleteRestore serves a cache whose restores leave only bin/ruby at
+// root, with marker as setup-ruby's install marker unless it is empty, and
+// report result.
+func incompleteRestore(t *testing.T, root, marker, result string) string {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/step/cache/restore", func(w http.ResponseWriter, _ *http.Request) {
+		assert.Check(t, os.MkdirAll(filepath.Join(root, "bin"), 0750))
+		assert.Check(t, os.WriteFile(filepath.Join(root, "bin", "ruby"), []byte("#!/bin/sh\necho 'ruby 3.4.1 (2026-01-01 revision 0000000000) [fake]'\n"), 0700)) //nolint:gosec // must be executable
+		if marker != "" {
+			assert.Check(t, os.WriteFile(filepath.Join(root, ".setup-ruby-build"), []byte(marker+"\n"), 0600))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"result": result})
+	})
+	mux.HandleFunc("/step/cache/save", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"result": "success"})
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv.URL
 }
 
 // TestCLI_Install_RbenvPartialVersionFile covers a .ruby-version naming a

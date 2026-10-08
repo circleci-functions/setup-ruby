@@ -76,6 +76,9 @@ func TestInstall(t *testing.T) {
 	assert.NilError(t, err, "the archive's root should be unpacked at dest")
 	_, err = os.Stat(filepath.Join(dest, "stale"))
 	assert.Assert(t, os.IsNotExist(err), "an earlier install at dest should be replaced")
+	assert.Assert(t, rubydist.Installed(dest, srv.Build(rel)))
+	assert.Assert(t, !rubydist.Installed(dest, srv.Build(fakedist.Release{Version: "3.4.1", Rebuild: 1})), "another build of the version should not pass for this one")
+	assert.Assert(t, !rubydist.Installed(t.TempDir(), srv.Build(rel)), "an unmarked directory should not pass for an install")
 }
 
 func TestInstall_ChecksumMismatch(t *testing.T) {

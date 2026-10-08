@@ -16,9 +16,20 @@ import (
 	hc "github.com/circleci-functions/toolkit/httpcl"
 )
 
+// marker is the file Install leaves in an install, naming the build it holds.
+const marker = ".setup-ruby-build"
+
+// Installed reports whether dest holds b as Install left it, so that neither
+// what an interrupted run or a failed cache restore left at dest, nor another
+// build of the same version, passes for it.
+func Installed(dest string, b Build) bool {
+	data, err := os.ReadFile(filepath.Join(dest, marker)) //nolint:gosec // dest is setup-ruby's own install
+	return err == nil && strings.TrimSpace(string(data)) == strings.ToLower(b.SHA256)
+}
+
 // Install downloads b, checks it against its SHA-256, and unpacks it so that
-// dest is the directory the archive holds at b.Root. Anything already at
-// dest, such as an incomplete install, is replaced.
+// dest is the directory the archive holds at b.Root, marked as holding b.
+// Anything already at dest, such as an incomplete install, is replaced.
 func Install(ctx context.Context, b Build, dest string) error {
 	name := path.Base(b.URL)
 	parent := filepath.Dir(dest)
@@ -57,6 +68,9 @@ func Install(ctx context.Context, b Build, dest string) error {
 	root := filepath.Join(staging, filepath.FromSlash(b.Root))
 	if _, err := os.Stat(root); err != nil {
 		return fmt.Errorf("%s has no %s directory", name, b.Root)
+	}
+	if err := os.WriteFile(filepath.Join(root, marker), []byte(strings.ToLower(b.SHA256)+"\n"), 0644); err != nil { //nolint:gosec // not secret
+		return err
 	}
 	if err := os.RemoveAll(dest); err != nil {
 		return err

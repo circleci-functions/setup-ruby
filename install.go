@@ -207,7 +207,7 @@ func (c *installCmd) ensureInstalled(ctx context.Context, client *sdk.Client, sp
 	}
 	root = filepath.Join(installDir, build.Version+"-"+platform.String())
 	key := c.cacheKey("setup-ruby-v1-"+build.Version+"-"+platform.String()+"-"+buildID(build), root)
-	if c.restore(ctx, client, key, "Ruby "+build.Version, root, rubypath.Installed) {
+	if c.restore(ctx, client, key, "Ruby "+build.Version, build, root) {
 		return build.Version, root, nil
 	}
 	return build.Version, root, c.download(ctx, client, key, "Ruby "+build.Version, build, root)
@@ -231,15 +231,10 @@ func (c *installCmd) ensureToolchain(ctx context.Context, client *sdk.Client, pl
 	dest := filepath.Join(root, "msys64")
 	key := c.cacheKey("setup-ruby-msys2-v1-"+build.Version+"-"+platform.String()+"-"+buildID(build), dest)
 	name := "MSYS2 build tools " + build.Version
-	if c.restore(ctx, client, key, name, dest, msys2Installed) {
+	if c.restore(ctx, client, key, name, build, dest) {
 		return nil
 	}
 	return c.download(ctx, client, key, name, build, dest)
-}
-
-func msys2Installed(root string) bool {
-	_, err := os.Stat(filepath.Join(root, "usr", "bin"))
-	return err == nil
 }
 
 // resolve returns the build of the newest release matching spec for platform.
@@ -291,23 +286,25 @@ func (c *installCmd) loadCatalog(ctx context.Context) (rubydist.Catalog, error) 
 	return catalog, nil
 }
 
-// restore reports whether root holds name, as installed reports, from an
-// earlier run or, failing that, the job cache. A restore that fails part way
-// is removed rather than trusted.
-func (c *installCmd) restore(ctx context.Context, client *sdk.Client, key, name, root string, installed func(string) bool) bool {
-	if installed(root) {
+// restore reports whether root holds build from an earlier run or, failing
+// that, the job cache. Whatever else is at root is removed first, so that a
+// restore cannot mix with it.
+func (c *installCmd) restore(ctx context.Context, client *sdk.Client, key, name string, build rubydist.Build, root string) bool {
+	if rubydist.Installed(root, build) {
 		return true
 	}
 	if !c.Cache {
 		return false
 	}
-	_, err := client.RestoreCache(ctx, []string{key}, sdk.WithStepName("Restoring "+name))
-	sdk.LogCacheErr("restore", err)
-	if err != nil {
-		_ = os.RemoveAll(root)
+	if err := os.RemoveAll(root); err != nil {
 		return false
 	}
-	if !installed(root) {
+	res, err := client.RestoreCache(ctx, []string{key}, sdk.WithStepName("Restoring "+name))
+	sdk.LogCacheErr("restore", err)
+	if err == nil && res.Raw != "success" {
+		fmt.Fprintf(os.Stderr, "setup-ruby: restoring %s from cache did not succeed (%s); downloading it instead\n", name, res.Raw)
+	}
+	if err != nil || res.Raw != "success" || !rubydist.Installed(root, build) {
 		return false
 	}
 	fmt.Fprintf(os.Stderr, "setup-ruby: restored %s from cache\n", name)
