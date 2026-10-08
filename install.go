@@ -195,33 +195,22 @@ func useSystemRuby() bool {
 
 // ensureInstalled returns the version spec resolves to and the root of its
 // install, restoring it from the job cache or downloading it unless an
-// earlier run already did. An exact spec is resolved against the list of
-// builds only when there is something to download.
+// earlier run already did.
 func (c *installCmd) ensureInstalled(ctx context.Context, client *sdk.Client, spec rubyversion.Spec, platform rubydist.Platform) (version, root string, err error) {
 	installDir, err := expandHome(c.InstallDir)
 	if err != nil {
 		return "", "", err
 	}
-
-	version, exact := spec.Exact()
-	var build rubydist.Build
-	if !exact {
-		if build, err = c.resolve(ctx, spec, platform); err != nil {
-			return "", "", err
-		}
-		version = build.Version
+	build, err := c.resolve(ctx, spec, platform)
+	if err != nil {
+		return "", "", err
 	}
-	root = filepath.Join(installDir, version+"-"+platform.String())
-	key := c.cacheKey("setup-ruby-v1-"+version+"-"+platform.String(), root)
-	if c.restore(ctx, client, key, "Ruby "+version, root, rubypath.Installed) {
-		return version, root, nil
+	root = filepath.Join(installDir, build.Version+"-"+platform.String())
+	key := c.cacheKey("setup-ruby-v1-"+build.Version+"-"+platform.String()+"-"+buildID(build), root)
+	if c.restore(ctx, client, key, "Ruby "+build.Version, root, rubypath.Installed) {
+		return build.Version, root, nil
 	}
-	if exact {
-		if build, err = c.resolve(ctx, spec, platform); err != nil {
-			return "", "", err
-		}
-	}
-	return version, root, c.download(ctx, client, key, "Ruby "+version, build, root)
+	return build.Version, root, c.download(ctx, client, key, "Ruby "+build.Version, build, root)
 }
 
 // ensureToolchain puts the MSYS2 build tools in the msys64 directory of a
@@ -240,7 +229,7 @@ func (c *installCmd) ensureToolchain(ctx context.Context, client *sdk.Client, pl
 		return fmt.Errorf("no MSYS2 build tools for %s; pass --windows-toolchain none to skip them", platform)
 	}
 	dest := filepath.Join(root, "msys64")
-	key := c.cacheKey("setup-ruby-msys2-v1-"+build.Version+"-"+platform.String(), dest)
+	key := c.cacheKey("setup-ruby-msys2-v1-"+build.Version+"-"+platform.String()+"-"+buildID(build), dest)
 	name := "MSYS2 build tools " + build.Version
 	if c.restore(ctx, client, key, name, dest, msys2Installed) {
 		return nil
@@ -347,6 +336,16 @@ func (c *installCmd) cacheKey(prefix, root string) string {
 		key += "-" + c.CacheNonce
 	}
 	return key
+}
+
+// buildID shortens the SHA-256 of b for a cache key, which has to change when
+// a version is rebuilt: a key, once saved, cannot be saved over.
+func buildID(b rubydist.Build) string {
+	sum := strings.ToLower(b.SHA256)
+	if len(sum) > 8 {
+		return sum[:8]
+	}
+	return sum
 }
 
 // writeGemrc stops gem install generating documentation, which a CI job

@@ -132,8 +132,9 @@ are published, with the checksum published beside them, on Linux and macOS.
 ### Caching the install
 
 The unpacked install is saved to the job cache under a key made of the Ruby
-version and platform, so later jobs restore it rather than downloading it
-again. The Windows build tools are cached the same way. A cache problem never
+version, platform and build, so later jobs restore it rather than downloading
+it again, and a version rebuilt in a newer release of setup-ruby is
+downloaded afresh. The Windows build tools are cached the same way. A cache problem never
 fails the job. Turn it off with `--cache=false`.
 
 ### Flags

@@ -250,7 +250,6 @@ func stubCalls(t *testing.T, logPath string) []string {
 func TestCLI_Install_Cache(t *testing.T) {
 	p, err := rubydist.Host()
 	assert.NilError(t, err)
-	name := "3.4.1-" + p.String()
 	tests := []struct {
 		name       string
 		args       []string
@@ -270,7 +269,8 @@ func TestCLI_Install_Cache(t *testing.T) {
 
 			assert.Equal(t, len(rec.saves), 1)
 			key := rec.saves[0].Key
-			assert.Assert(t, cmp.Regexp(`^setup-ruby-v1-`+regexp.QuoteMeta(name)+`-[0-9a-f]{8}`+regexp.QuoteMeta(tc.wantSuffix)+`$`, key))
+			prefix := "setup-ruby-v1-3.4.1-" + p.String() + "-" + srv.Build(fakedist.Release{Version: "3.4.1"}).SHA256[:8]
+			assert.Assert(t, cmp.Regexp(`^`+regexp.QuoteMeta(prefix)+`-[0-9a-f]{8}`+regexp.QuoteMeta(tc.wantSuffix)+`$`, key))
 			assert.DeepEqual(t, rec.saves[0].Paths, []string{installRoot(t, s, "3.4.1")})
 			assert.Equal(t, len(rec.restores), 1)
 			assert.DeepEqual(t, rec.restores[0], []string{key})
@@ -334,6 +334,28 @@ func TestCLI_Install_RerunReusesInstall(t *testing.T) {
 	}
 	assert.Equal(t, srv.Downloads(), 1)
 	assert.Equal(t, len(rec.restores), 1, "a rerun should not touch the cache")
+}
+
+// TestCLI_Install_RebuildReplacesInstall covers a version republished with a
+// fixed build: the install an earlier job cached may not pass for the new
+// build, and the new build must be cached in turn.
+func TestCLI_Install_RebuildReplacesInstall(t *testing.T) {
+	first, s, binDir := installEnv(t)
+	out, err := runIn(t, s, "", nil, installArgs(first, binDir, "--ruby-version", "3.4.1")...)
+	assert.NilError(t, err, "output: %s", out)
+	assert.NilError(t, os.RemoveAll(filepath.Join(s.Home, ".cache", "setup-ruby")))
+
+	second := fakedist.New(t, fakedist.Release{Version: "3.4.1", Rebuild: 1})
+	out, err = runIn(t, s, "", nil, installArgs(second, binDir, "--ruby-version", "3.4.1")...)
+	assert.NilError(t, err, "output: %s", out)
+	assert.Equal(t, second.Downloads(), 1, "expected the rebuild to be downloaded; output: %s", out)
+	_, err = os.Stat(filepath.Join(installRoot(t, s, "3.4.1"), "REBUILD"))
+	assert.NilError(t, err, "expected the rebuild to be installed")
+
+	assert.NilError(t, os.RemoveAll(filepath.Join(s.Home, ".cache", "setup-ruby")))
+	out, err = runIn(t, s, "", nil, installArgs(second, binDir, "--ruby-version", "3.4.1")...)
+	assert.NilError(t, err, "output: %s", out)
+	assert.Equal(t, second.Downloads(), 1, "expected the rebuild to be cached; output: %s", out)
 }
 
 // TestCLI_Install_RbenvPartialVersionFile covers a .ruby-version naming a

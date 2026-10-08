@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -34,6 +35,9 @@ type Release struct {
 	// Unlisted leaves the release out of the catalog, as one newer than
 	// setup-ruby's would be, so it is found only through Live.
 	Unlisted bool
+	// Rebuild numbers a rebuild of the release, whose archive differs from
+	// the first build's, as a republished one does.
+	Rebuild int
 }
 
 // Server is a running fake distribution server.
@@ -227,6 +231,9 @@ func Archive(rel Release) []byte {
 	file("bin/bundle", script("bundle", "Bundler version 2.6.9"), 0755)
 	for _, name := range []string{"bundler", "irb", "rake", "erb", "rdoc", "ri"} {
 		file("bin/"+name, script(name, name), 0755)
+	}
+	if rel.Rebuild > 0 {
+		file("REBUILD", strconv.Itoa(rel.Rebuild), 0644)
 	}
 
 	_ = tw.Close()
