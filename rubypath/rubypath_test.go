@@ -93,7 +93,7 @@ func TestReportsVersion_Prerelease(t *testing.T) {
 	bin := filepath.Join(t.TempDir(), "ruby")
 	assert.NilError(t, os.WriteFile(bin, []byte("#!/bin/sh\necho 'ruby 3.5.0preview1 (2025-04-18 master 0000000000) +PRISM [fake]'\n"), 0700)) //nolint:gosec // must be executable
 
-	assert.NilError(t, reportsVersion(bin, "3.5.0-preview1"))
+	assert.NilError(t, reportsVersion(bin, "", "3.5.0-preview1"))
 }
 
 func TestLink_RegistersWithRbenv(t *testing.T) {
@@ -146,6 +146,36 @@ func TestLink_RbenvVersionOverridesGlobal(t *testing.T) {
 	_, err := Link(Options{Root: install, Version: "3.4.1", Path: filepath.Join(root, "shims")})
 	assert.ErrorContains(t, err, "rbenv runs 3.3.0")
 	assert.ErrorContains(t, err, "$RBENV_VERSION takes precedence")
+}
+
+func TestLink_RbenvVersionFileInDir(t *testing.T) {
+	install := fakeInstall(t)
+	root := fakerbenv.New(t, "3.3.0")
+	dir := t.TempDir()
+	assert.NilError(t, os.WriteFile(filepath.Join(dir, ".ruby-version"), []byte("3.3.0\n"), 0600))
+
+	_, err := Link(Options{Root: install, Version: "3.4.1", Path: filepath.Join(root, "shims"), Dir: dir})
+	assert.ErrorContains(t, err, "rbenv runs 3.3.0")
+}
+
+func TestLink_RbenvAliases(t *testing.T) {
+	install := fakeInstall(t)
+	root := fakerbenv.New(t, "3.4")
+	dir := t.TempDir()
+	assert.NilError(t, os.WriteFile(filepath.Join(dir, ".ruby-version"), []byte("ruby-3\n"), 0600))
+
+	res, err := Link(Options{Root: install, Version: "3.4.1", Path: filepath.Join(root, "shims"), Dir: dir, Aliases: []string{"ruby-3", "3.4", "ruby-3.4.1", "../3"}})
+	assert.NilError(t, err)
+	assert.Equal(t, res.Rbenv, "3.4.1")
+	target, err := os.Readlink(filepath.Join(root, "versions", "ruby-3"))
+	assert.NilError(t, err)
+	assert.Equal(t, target, install)
+	_, err = os.Stat(filepath.Join(root, "versions", "3.4", "bin", "ruby"))
+	assert.NilError(t, err, "rbenv's own install was disturbed")
+	for _, name := range []string{"ruby-3.4.1", filepath.Join("..", "3")} {
+		_, err = os.Lstat(filepath.Join(root, "versions", name))
+		assert.Assert(t, os.IsNotExist(err), "%s should not be registered", name)
+	}
 }
 
 func TestGemExecutables(t *testing.T) {

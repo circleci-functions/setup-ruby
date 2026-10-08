@@ -26,6 +26,12 @@ type Options struct {
 	BinDir string
 	// Path is the search path to use. Empty means this process's PATH.
 	Path string
+	// Dir is the directory the job runs Ruby in, whose .ruby-version rbenv
+	// reads. Empty means this process's working directory.
+	Dir string
+	// Aliases are other names a .ruby-version may ask rbenv for the install
+	// by, such as the 3.4 it was resolved from.
+	Aliases []string
 }
 
 // BinDir returns the directory of an install at root holding its executables.
@@ -132,7 +138,7 @@ func Shadowed(dir, name string) string {
 func verify(from, version string) func(string) error {
 	want := filepath.Join(from, "ruby")
 	return func(bin string) error {
-		if err := reportsVersion(bin, version); err != nil {
+		if err := reportsVersion(bin, "", version); err != nil {
 			return err
 		}
 		if runtime.GOOS != "windows" && !sameFile(bin, want) {
@@ -142,10 +148,12 @@ func verify(from, version string) func(string) error {
 	}
 }
 
-// reportsVersion checks the ruby at bin runs and reports version. ruby -v
-// writes a prerelease without the hyphen in its name: 3.5.0preview1.
-func reportsVersion(bin, version string) error {
-	out, err := pathlink.Command(bin, "-v").CombinedOutput()
+// reportsVersion checks the ruby at bin runs in dir and reports version.
+// ruby -v writes a prerelease without the hyphen in its name: 3.5.0preview1.
+func reportsVersion(bin, dir, version string) error {
+	cmd := pathlink.Command(bin, "-v")
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to run: %w: %s", err, strings.TrimSpace(string(out)))
 	}

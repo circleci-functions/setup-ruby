@@ -16,6 +16,7 @@ import (
 	"github.com/circleci-functions/toolkit/sdk/sdktest"
 
 	"github.com/circleci-functions/setup-ruby/internal/testing/fakedist"
+	"github.com/circleci-functions/setup-ruby/internal/testing/fakerbenv"
 	"github.com/circleci-functions/setup-ruby/rubydist"
 )
 
@@ -333,6 +334,29 @@ func TestCLI_Install_RerunReusesInstall(t *testing.T) {
 	}
 	assert.Equal(t, srv.Downloads(), 1)
 	assert.Equal(t, len(rec.restores), 1, "a rerun should not touch the cache")
+}
+
+// TestCLI_Install_RbenvPartialVersionFile covers a .ruby-version naming a
+// partial version, which rbenv looks up by that name only.
+func TestCLI_Install_RbenvPartialVersionFile(t *testing.T) {
+	srv, s, _ := installEnv(t)
+	rbenv := fakerbenv.New(t, "3.3.0")
+	app := filepath.Join(t.TempDir(), "app")
+	assert.NilError(t, os.MkdirAll(app, 0750))
+	assert.NilError(t, os.WriteFile(filepath.Join(app, ".ruby-version"), []byte("3.3\n"), 0600))
+	path := strings.Join([]string{filepath.Join(rbenv, "shims"), filepath.Join(rbenv, "bin"), "/usr/bin", "/bin"}, string(os.PathListSeparator))
+
+	out, err := runIn(t, s, t.TempDir(), map[string]string{"PATH": path}, "--downloads-url", srv.CatalogURL(), "--working-directory", app)
+	assert.NilError(t, err, "output: %s", out)
+
+	target, err := os.Readlink(filepath.Join(rbenv, "versions", "3.3"))
+	assert.NilError(t, err)
+	assert.Equal(t, target, installRoot(t, s, "3.3.6"))
+	cmd := exec.Command(filepath.Join(rbenv, "shims", "ruby"), "-v")
+	cmd.Dir = app
+	got, err := cmd.Output()
+	assert.NilError(t, err)
+	assert.Assert(t, strings.HasPrefix(string(got), "ruby 3.3.6 "), "ruby -v in %s: %s", app, got)
 }
 
 func TestCLI_Install_Errors(t *testing.T) {

@@ -105,7 +105,10 @@ executables resolve through them.
 Where `ruby` is already on `PATH` through rbenv's shims, setup-ruby registers
 the install with rbenv instead of linking it: it is added to
 `$(rbenv root)/versions` under its version, made rbenv's global version, and
-the shims rehashed. A `.ruby-version` file or `$RBENV_VERSION` takes
+the shims rehashed. rbenv looks a `.ruby-version` up by name only, so the
+install is also registered under the version it was asked for by, such as
+`3.4`, unless rbenv already has a Ruby of that name. A `.ruby-version` file
+in `--working-directory` or `$RBENV_VERSION` takes
 precedence over rbenv's global version, so if either selects another Ruby,
 setup-ruby fails rather than leave later steps running a Ruby other than the
 one asked for.

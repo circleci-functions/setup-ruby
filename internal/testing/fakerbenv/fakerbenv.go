@@ -14,8 +14,10 @@ import (
 )
 
 // New writes an rbenv root whose shims run the version named by
-// $RBENV_VERSION or the root's version file, as rbenv's do, holding a version
-// of its own named preinstalled, whose ruby answers -v.
+// $RBENV_VERSION, the .ruby-version in the directory they run in, or the
+// root's version file, looked up by name as rbenv's are, holding a version of
+// its own named preinstalled, whose ruby answers -v. Unlike rbenv, the shims
+// do not look for a .ruby-version in parent directories.
 func New(t *testing.T, preinstalled string) string {
 	t.Helper()
 	skip.If(t, runtime.GOOS == "windows", "the fake rbenv is shell scripts")
@@ -24,7 +26,8 @@ func New(t *testing.T, preinstalled string) string {
 		assert.NilError(t, os.MkdirAll(filepath.Join(root, dir), 0750))
 	}
 	assert.NilError(t, os.WriteFile(filepath.Join(root, "version"), []byte(preinstalled+"\n"), 0600))
-	selected := `v=${RBENV_VERSION:-$(/bin/cat "` + root + `/version")}`
+	selected := `if [ -n "$RBENV_VERSION" ]; then v=$RBENV_VERSION; elif [ -f .ruby-version ]; then read -r v < .ruby-version; else read -r v < "` + root + `/version"; fi
+[ -d "` + root + `/versions/$v" ] || v=${v#ruby-}`
 	scripts := map[string]string{
 		"bin/rbenv": "#!/bin/sh\n" + selected + "\ncase \"$1\" in\n" +
 			"global) printf '%s\\n' \"$2\" > \"" + root + "/version\" ;;\n" +

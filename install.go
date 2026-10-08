@@ -71,7 +71,13 @@ func (c *installCmd) Run(ctx context.Context, client *sdk.Client) error {
 		return err
 	}
 
-	linked, err := rubypath.Link(rubypath.Options{Root: root, Version: version, BinDir: c.BinDir})
+	linked, err := rubypath.Link(rubypath.Options{
+		Root:    root,
+		Version: version,
+		BinDir:  c.BinDir,
+		Dir:     wd,
+		Aliases: []string{strings.TrimSpace(spec.String())},
+	})
 	if err != nil {
 		return err
 	}
