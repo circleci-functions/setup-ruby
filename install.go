@@ -25,7 +25,7 @@ var live = rubydist.DefaultLive
 // installCmd installs a relocatable Ruby build for the running platform and
 // makes ruby, gem and bundle resolvable by name for the rest of the job.
 type installCmd struct {
-	RubyVersion      string `help:"Ruby version to install: an exact version (3.4.1), a major or major.minor prefix (3, 3.4) or latest. Defaults to the version in .ruby-version, .tool-versions or mise.toml in --working-directory, then the Ruby already on PATH, then the newest stable release."`
+	RubyVersion      string `help:"Ruby version to install: an exact version (3.4.1), a major or major.minor prefix (3, 3.4) or latest. Defaults to the version in .ruby-version, .tool-versions or mise.toml in --working-directory, then the Ruby already on PATH, then the newest stable release." example:"3.4"`
 	RubyVersionFile  string `help:"File to read the Ruby version from: .ruby-version, .tool-versions or mise.toml." type:"path"`
 	WorkingDirectory string `help:"Directory to look for version files and Gemfile.lock in." default:"."`
 	Rubygems         string `help:"RubyGems version: default keeps the one Ruby ships, latest runs gem update --system, and a version such as 3.6.9 updates to it when it is newer than the one Ruby ships." default:"default"`
