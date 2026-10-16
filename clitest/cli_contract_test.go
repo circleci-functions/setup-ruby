@@ -21,7 +21,7 @@ func TestCLI_Help(t *testing.T) {
 		args []string
 		want []string
 	}{
-		{args: []string{"install", "--help"}, want: []string{"--ruby-version", "--ruby-version-file", "--working-directory", "--rubygems", "--bundler", "--windows-toolchain", "--cache"}},
+		{args: []string{"install", "--help"}, want: []string{"--ruby-version", "--ruby-version-file", "--working-directory", "--rubygems", "--bundler", "--windows-toolchain", "--cache", "--bin-dir"}},
 		{args: []string{"install-gems", "--help"}, want: []string{"--app-dir", "--gemfile", "--key"}},
 	}
 	for _, tc := range tests {
@@ -31,7 +31,7 @@ func TestCLI_Help(t *testing.T) {
 			for _, flag := range tc.want {
 				assert.Assert(t, strings.Contains(out, flag), "help missing %s; got: %s", flag, out)
 			}
-			for _, hidden := range []string{"--install-dir", "--bin-dir", "--cache-nonce", "--downloads-url", "--bundler-version"} {
+			for _, hidden := range []string{"--install-dir", "--cache-nonce", "--downloads-url", "--bundler-version"} {
 				assert.Assert(t, !strings.Contains(out, hidden), "help shows %s; got: %s", hidden, out)
 			}
 		})

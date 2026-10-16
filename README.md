@@ -113,6 +113,22 @@ precedence over rbenv's global version, so if either selects another Ruby,
 setup-ruby fails rather than leave later steps running a Ruby other than the
 one asked for.
 
+### Where it links
+
+setup-ruby links into the first of `~/.local/bin`, `~/bin` and
+`/usr/local/bin` that is on `PATH` ahead of any `ruby` already there and that
+it can write to. Failing that, it links into the directory of the `ruby`
+already on `PATH`, replacing the `ruby`, `gem` and other executables there,
+or, with no `ruby` on `PATH`, into the first directory on `PATH` it can write
+to, then `/usr/local/bin`.
+
+Where that directory needs root, as for a preinstalled `/usr/bin/ruby`,
+setup-ruby links with `sudo -n`. Without passwordless sudo, it fails before
+downloading anything. Put `~/.local/bin` on `PATH` ahead of that directory,
+or name a directory with `--bin-dir`: setup-ruby links into exactly that one,
+without searching `PATH` or registering with rbenv, so it has to be on `PATH`
+for later steps.
+
 ### Windows build tools
 
 On Windows, setup-ruby also installs the MSYS2 build tools RubyInstaller uses
@@ -147,6 +163,7 @@ fails the job. Turn it off with `--cache=false`.
 | `--bundler` | `Gemfile.lock` | Bundler to install |
 | `--rubygems` | `default` | RubyGems version to update to |
 | `--windows-toolchain` | `default` | `default` installs the MSYS2 build tools on Windows, `none` skips them |
+| `--bin-dir` | (empty) | Link `ruby`, `gem` and `bundle` into this directory instead of discovering one on `PATH` |
 | `--cache` | `true` | Set `--cache=false` to disable caching the install |
 
 ## Installing gems
