@@ -183,7 +183,8 @@ afterwards.
 Run the install command first, or use an image with Ruby and Bundler on
 `PATH`, such as `cimg/ruby`. Bundler switches to the version a lock file was
 written with by itself; the install command's `--bundler` installs it ahead of
-time.
+time. It replaces v0.1.0's `--bundler-version`; `install-gems` has no Bundler
+flag.
 
 ### Choosing the lock file
 
@@ -211,6 +212,9 @@ Caching is on by default. `install-gems` restores the gem cache before
 installing and saves it afterwards, keyed as
 `<key>-<arch>-<branch>-<checksum>`, where `<checksum>` is a SHA-256 of the
 resolved lock file — so a changed lock file refreshes the cache on its own.
+It saves after every install, even one restored under that exact key: cache
+keys are written once, so that save is skipped rather than overwriting
+anything.
 
 Restore also tries a looser `<key>-<arch>-<branch>-` key, so a changed lock
 file still warms from the last build; `--only-use-gemfile-checksum-cache-key`
