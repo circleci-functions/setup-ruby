@@ -1,6 +1,7 @@
 package rubypath
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -259,6 +260,46 @@ func TestGemHooks_AreValidRuby(t *testing.T) {
 			assert.NilError(t, os.WriteFile(file, []byte(hookMarker+".\n"+loadShippedHook+body), 0600))
 			out, err := exec.Command(ruby, "-c", file).CombinedOutput()
 			assert.NilError(t, err, "%s", out)
+		})
+	}
+}
+
+func TestCheckLink(t *testing.T) {
+	skip.If(t, runtime.GOOS == "windows", "the fake ruby is a shell script")
+	skip.If(t, os.Getuid() == 0, "root can write to a read-only directory")
+
+	errNoSudo := errors.New("sudo: a password is required")
+	readOnly := t.TempDir()
+	//nolint:gosec // test stub; 0700 so it is executable
+	assert.NilError(t, os.WriteFile(filepath.Join(readOnly, "ruby"), []byte("#!/bin/sh\n"), 0700))
+	//nolint:gosec // a directory needs its execute bit to be searched on PATH
+	assert.NilError(t, os.Chmod(readOnly, 0500))
+	//nolint:gosec // writable again, so the temp dir can be removed
+	t.Cleanup(func() { _ = os.Chmod(readOnly, 0700) })
+
+	tests := []struct {
+		name    string
+		opts    Options
+		sudo    error
+		wantErr string
+	}{
+		{name: "writable dir on PATH", opts: Options{Path: t.TempDir()}, sudo: errNoSudo},
+		{name: "--bin-dir", opts: Options{Path: readOnly, BinDir: t.TempDir()}, sudo: errNoSudo},
+		{name: "sudo needed and works", opts: Options{Path: readOnly}},
+		{name: "sudo needed and fails", opts: Options{Path: readOnly}, sudo: errNoSudo, wantErr: "linking ruby into " + readOnly + " needs sudo, and sudo -n failed: sudo: a password is required"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			orig := sudoWorks
+			sudoWorks = func() error { return tc.sudo }
+			t.Cleanup(func() { sudoWorks = orig })
+
+			err := CheckLink(tc.opts)
+			if tc.wantErr != "" {
+				assert.Error(t, err, tc.wantErr)
+				return
+			}
+			assert.NilError(t, err)
 		})
 	}
 }
