@@ -92,7 +92,7 @@ unless you have one.
 Where it can, setup-ruby has `gem install` put the executables of the gems it
 installs beside `ruby` on `PATH`, so `gem install rubocop` makes `rubocop`
 resolve by name in later steps. Where `$GEM_HOME` is set, they go to
-`$GEM_HOME/bin` instead.
+`$GEM_HOME/bin` instead, and setup-ruby warns if that is not on `PATH`.
 
 Where the directory `ruby` is linked into needs elevated permissions to write
 to, they stay in the install's own `bin` directory, which is not on `PATH`.
