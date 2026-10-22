@@ -33,7 +33,7 @@ type installCmd struct {
 	WindowsToolchain string `help:"On Windows, default installs the MSYS2 build tools RubyInstaller compiles native extensions with, and none skips them." default:"default" enum:"default,none"`
 	Cache            bool   `help:"Restore the Ruby install from the job cache, and save it after a fresh download. Set to false to disable caching." default:"true"`
 	InstallDir       string `help:"Directory to install Ruby versions under." default:"~/.cache/setup-ruby" hidden:""`
-	BinDir           string `help:"Link ruby, gem and bundle into this directory instead of discovering one on PATH." type:"path" hidden:""`
+	BinDir           string `help:"Link ruby, gem and bundle into this directory instead of discovering one on PATH." type:"path"`
 	CacheNonce       string `help:"Partition the Ruby install cache, so a test run cannot restore an earlier run's install." hidden:""`
 	DownloadsURL     string `help:"Read the list of Ruby builds from this URL instead of setup-ruby's built-in one." hidden:""`
 
@@ -51,6 +51,10 @@ func (c *installCmd) Run(ctx context.Context, client *sdk.Client) error {
 	}
 	if !ok {
 		return c.setUp(ctx, systemRuby{}, wd)
+	}
+
+	if err := rubypath.Check(rubypath.Options{BinDir: c.BinDir}); err != nil {
+		return fmt.Errorf("%w; or pass --bin-dir with a writable directory on PATH to link into", err)
 	}
 
 	platform, err := rubydist.Host()

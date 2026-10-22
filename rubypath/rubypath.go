@@ -99,6 +99,26 @@ func Link(opts Options) (Result, error) {
 	return Result{Dir: res.Dir}, nil
 }
 
+// Check reports whether Link would be able to link ruby onto PATH, mirroring
+// Link's own logic: it returns nil when BinDir is set or ruby is on PATH
+// through rbenv's shims (Link registers the install with rbenv and does not
+// use pathlink at all in those cases). Otherwise it calls pathlink.Check with
+// the same options Link would pass to pathlink.Ensure.
+func Check(opts Options) error {
+	if opts.BinDir == "" {
+		if _, ok := rbenvRoot(opts.Path); ok {
+			return nil
+		}
+	}
+	_, err := pathlink.Check(pathlink.Options{
+		Names:     []string{"ruby"},
+		Preferred: pathlink.UserBinDirs(),
+		Dir:       opts.BinDir,
+		Path:      opts.Path,
+	})
+	return err
+}
+
 // writeScriptShims makes the scripts of a Windows install resolvable from
 // dir, in cmd, PowerShell and Git Bash. RubyInstaller ships each as a Ruby
 // script beside a .bat or .cmd wrapper, which pathlink, linking .exe files,

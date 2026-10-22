@@ -157,6 +157,27 @@ func TestCLI_Install_UsesTheRubyOnPath(t *testing.T) {
 	assert.Equal(t, len(entries), 0, "nothing should be linked into --bin-dir: %v", entries)
 }
 
+// TestCLI_Install_FailsBeforeDownloadingWithoutSudo covers a ruby on PATH in a
+// directory only sudo can link into, with no sudo to run: install fails
+// before it downloads anything, naming the ways out.
+func TestCLI_Install_FailsBeforeDownloadingWithoutSudo(t *testing.T) {
+	skip.If(t, os.Getuid() == 0, "root can write to a read-only directory")
+	srv, s, _ := installEnv(t)
+	pathDir := t.TempDir()
+	//nolint:gosec // test stub; 0700 so it is executable
+	assert.NilError(t, os.WriteFile(filepath.Join(pathDir, "ruby"), []byte("#!/bin/sh\necho 'ruby 3.2.2 (2023-03-30 revision e51014f9c0) [x86_64-linux]'\n"), 0700))
+	//nolint:gosec // a directory needs its execute bit to be searched on PATH
+	assert.NilError(t, os.Chmod(pathDir, 0500))
+	//nolint:gosec // writable again, so the temp dir can be removed
+	t.Cleanup(func() { _ = os.Chmod(pathDir, 0700) })
+
+	out, err := runIn(t, s, t.TempDir(), map[string]string{"PATH": pathDir}, "--downloads-url", srv.CatalogURL(), "--ruby-version", "3.4")
+	assert.Assert(t, err != nil, "expected a non-zero exit; output: %s", out)
+	assert.Assert(t, strings.Contains(out, "linking ruby into "+pathDir+" needs root"), "output: %s", out)
+	assert.Assert(t, strings.Contains(out, "--bin-dir"), "output: %s", out)
+	assert.Equal(t, srv.Downloads(), 0)
+}
+
 func TestCLI_Install_LinksTools(t *testing.T) {
 	srv, s, binDir := installEnv(t)
 
