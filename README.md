@@ -5,15 +5,32 @@ job. An optional `install-gems` command then installs your gems with Bundler,
 caching them so later builds start from a warm cache.
 
 ```yaml
-steps:
-  - checkout
-  - run:
-      name: Install Ruby
-      command: circleci run github.com/circleci-functions/setup-ruby@<version> -- --ruby-version 3.4
-  - run:
-      name: Install gems
-      command: circleci run github.com/circleci-functions/setup-ruby@<version> -- install-gems
-  - run: bundle exec rake
+functions:
+  setup-ruby: github.com/circleci-functions/setup-ruby@<version>
+
+jobs:
+  test:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - setup-ruby:
+          with:
+            ruby-version: "3.4"
+      - setup-ruby/install-gems
+      - run: bundle exec rake
+```
+
+`- setup-ruby:` runs the default command, which installs Ruby, and
+`- setup-ruby/install-gems:` runs `install-gems`. Each flag in the tables
+below is a `with:` key, written without its leading `--`.
+
+Where the `functions:` block isn't enabled, such as on CircleCI Server, run the
+same commands with `circleci run` and the function's full name:
+
+```yaml
+- run: circleci run github.com/circleci-functions/setup-ruby@<version> -- --ruby-version 3.4
+- run: circleci run github.com/circleci-functions/setup-ruby@<version> -- install-gems
 ```
 
 ## Installing Ruby
@@ -55,7 +72,9 @@ Or read the version from a file with `--ruby-version-file`:
 | `mise.toml` | `tools.ruby` |
 
 ```yaml
-- run: circleci run github.com/circleci-functions/setup-ruby@<version> -- --ruby-version-file .tool-versions
+- setup-ruby:
+    with:
+      ruby-version-file: .tool-versions
 ```
 
 With neither flag, setup-ruby reads `.ruby-version`, `.tool-versions` and then
@@ -92,7 +111,7 @@ unless you have one.
 Where it can, setup-ruby has `gem install` put the executables of the gems it
 installs beside `ruby` on `PATH`, so `gem install rubocop` makes `rubocop`
 resolve by name in later steps. Where `$GEM_HOME` is set, they go to
-`$GEM_HOME/bin` instead.
+`$GEM_HOME/bin` instead, and setup-ruby warns if that is not on `PATH`.
 
 Where the directory `ruby` is linked into needs elevated permissions to write
 to, they stay in the install's own `bin` directory, which is not on `PATH`.
@@ -175,13 +194,16 @@ the `bundle` on `PATH`, restoring the gem cache before installing and saving it
 afterwards.
 
 ```yaml
-- run: circleci run github.com/circleci-functions/setup-ruby@<version> -- install-gems --app-dir ./api
+- setup-ruby/install-gems:
+    with:
+      app-dir: ./api
 ```
 
 Run the install command first, or use an image with Ruby and Bundler on
 `PATH`, such as `cimg/ruby`. Bundler switches to the version a lock file was
 written with by itself; the install command's `--bundler` installs it ahead of
-time.
+time. It replaces v0.1.0's `--bundler-version`; `install-gems` has no Bundler
+flag.
 
 ### Choosing the lock file
 
@@ -190,7 +212,10 @@ By default `install-gems` installs the gems declared by the `Gemfile` in
 needs it:
 
 ```yaml
-- run: circleci run github.com/circleci-functions/setup-ruby@<version> -- install-gems --app-dir ./api --gemfile Gemfile
+- setup-ruby/install-gems:
+    with:
+      app-dir: ./api
+      gemfile: Gemfile
 ```
 
 The lock file used for the cache key is resolved in this order:
@@ -206,6 +231,9 @@ Caching is on by default. `install-gems` restores the gem cache before
 installing and saves it afterwards, keyed as
 `<key>-<arch>-<branch>-<checksum>`, where `<checksum>` is a SHA-256 of the
 resolved lock file — so a changed lock file refreshes the cache on its own.
+It saves after every install, even one restored under that exact key: cache
+keys are written once, so that save is skipped rather than overwriting
+anything.
 
 Restore also tries a looser `<key>-<arch>-<branch>-` key, so a changed lock
 file still warms from the last build; `--only-use-gemfile-checksum-cache-key`
@@ -216,7 +244,10 @@ Turn caching off with `--cache=false`. Cache problems never fail the job, and
 a directory with no lock file is installed without caching.
 
 ```yaml
-- run: circleci run github.com/circleci-functions/setup-ruby@<version> -- install-gems --key gems-v1 --clean-bundle
+- setup-ruby/install-gems:
+    with:
+      key: gems-v1
+      clean-bundle: true
 ```
 
 ### Flags
