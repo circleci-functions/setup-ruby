@@ -53,7 +53,7 @@ func (c *installCmd) Run(ctx context.Context, client *sdk.Client) error {
 		return c.setUp(ctx, systemRuby{}, wd)
 	}
 
-	if _, err := pathlink.Check(pathlink.Options{Names: []string{"ruby"}, Preferred: pathlink.UserBinDirs(), Dir: c.BinDir}); err != nil {
+	if err := rubypath.Check(rubypath.Options{BinDir: c.BinDir}); err != nil {
 		return fmt.Errorf("%w; or pass --bin-dir with a writable directory on PATH to link into", err)
 	}
 

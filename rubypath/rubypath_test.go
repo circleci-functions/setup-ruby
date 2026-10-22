@@ -262,3 +262,18 @@ func TestGemHooks_AreValidRuby(t *testing.T) {
 		})
 	}
 }
+
+func TestCheck_SkipsCheckForRbenv(t *testing.T) {
+	skip.If(t, runtime.GOOS == "windows", "the fake rbenv is shell scripts")
+	skip.If(t, os.Getuid() == 0, "root can write to a read-only directory")
+
+	root := fakerbenv.New(t, "3.3.0")
+	shimsDir := filepath.Join(root, "shims")
+	//nolint:gosec // a directory needs its execute bit to be searched on PATH
+	assert.NilError(t, os.Chmod(shimsDir, 0500))
+	//nolint:gosec // writable again, so the temp dir can be removed
+	t.Cleanup(func() { _ = os.Chmod(shimsDir, 0700) })
+
+	err := Check(Options{Path: shimsDir})
+	assert.NilError(t, err, "Check should skip pathlink.Check when rbenv owns the ruby on PATH")
+}
