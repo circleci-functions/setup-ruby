@@ -173,7 +173,7 @@ func TestCLI_Install_FailsBeforeDownloadingWithoutSudo(t *testing.T) {
 
 	out, err := runIn(t, s, t.TempDir(), map[string]string{"PATH": pathDir}, "--downloads-url", srv.CatalogURL(), "--ruby-version", "3.4")
 	assert.Assert(t, err != nil, "expected a non-zero exit; output: %s", out)
-	assert.Assert(t, strings.Contains(out, "linking ruby into "+pathDir+" needs sudo"), "output: %s", out)
+	assert.Assert(t, strings.Contains(out, "linking ruby into "+pathDir+" needs root"), "output: %s", out)
 	assert.Assert(t, strings.Contains(out, "--bin-dir"), "output: %s", out)
 	assert.Equal(t, srv.Downloads(), 0)
 }

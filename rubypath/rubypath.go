@@ -3,10 +3,8 @@
 package rubypath
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -99,37 +97,6 @@ func Link(opts Options) (Result, error) {
 		}
 	}
 	return Result{Dir: res.Dir}, nil
-}
-
-// CheckLink fails when Link would have to link with sudo and sudo can't run
-// without a password, so a caller can find out before downloading an install
-// it then couldn't link.
-func CheckLink(opts Options) error {
-	if opts.BinDir != "" {
-		return nil
-	}
-	if _, ok := rbenvRoot(opts.Path); ok {
-		return nil
-	}
-	dirs := pathlink.SearchDirs(opts.Path)
-	dir, elevate := pathlink.ChooseDir(dirs, pathlink.IndexOf(dirs, "ruby"), pathlink.UserBinDirs(), pathlink.Writable)
-	if !elevate {
-		return nil
-	}
-	if err := sudoWorks(); err != nil {
-		return fmt.Errorf("linking ruby into %s needs sudo, and sudo -n failed: %w", dir, err)
-	}
-	return nil
-}
-
-// sudoWorks checks sudo runs without prompting for a password, as the
-// sudo -n ln Link falls back to has to. It's a variable so tests can stub it.
-var sudoWorks = func() error {
-	out, err := exec.Command("sudo", "-n", "true").CombinedOutput()
-	if msg := strings.TrimSpace(string(out)); err != nil && msg != "" {
-		return errors.New(strings.SplitN(msg, "\n", 2)[0])
-	}
-	return err
 }
 
 // writeScriptShims makes the scripts of a Windows install resolvable from

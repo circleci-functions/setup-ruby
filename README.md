@@ -129,6 +129,8 @@ or name a directory with `--bin-dir`: setup-ruby links into exactly that one,
 without searching `PATH` or registering with rbenv, so it has to be on `PATH`
 for later steps.
 
+A binary it replaces is kept beside the link as `<name>.pathlink-old`.
+
 ### Windows build tools
 
 On Windows, setup-ruby also installs the MSYS2 build tools RubyInstaller uses

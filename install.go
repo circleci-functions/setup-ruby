@@ -53,8 +53,8 @@ func (c *installCmd) Run(ctx context.Context, client *sdk.Client) error {
 		return c.setUp(ctx, systemRuby{}, wd)
 	}
 
-	if err := rubypath.CheckLink(rubypath.Options{BinDir: c.BinDir}); err != nil {
-		return fmt.Errorf("%w; put ~/.local/bin on PATH ahead of that directory, pass --bin-dir with a directory on PATH to link into, or allow passwordless sudo", err)
+	if _, err := pathlink.Check(pathlink.Options{Names: []string{"ruby"}, Preferred: pathlink.UserBinDirs(), Dir: c.BinDir}); err != nil {
+		return fmt.Errorf("%w; or pass --bin-dir with a writable directory on PATH to link into", err)
 	}
 
 	platform, err := rubydist.Host()
