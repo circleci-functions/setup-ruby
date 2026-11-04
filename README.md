@@ -4,7 +4,7 @@ Installs Ruby and puts `ruby`, `gem` and `bundle` on `PATH` for the rest of the
 job. An optional `install-gems` command then installs your gems with Bundler,
 caching them so later builds start from a warm cache.
 
-Use this function instead of the circleci/ruby orb.
+Use this function instead of the `circleci/ruby` orb.
 
 ```yaml
 functions:
