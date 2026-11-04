@@ -26,7 +26,7 @@ func run(ctx context.Context, client *sdk.Client) error {
 	var flags cli
 	kCtx := kong.Parse(&flags,
 		kong.Name("setup-ruby"),
-		kong.Description("Install Ruby, and optionally a project's gems, caching what each downloads."),
+		kong.Description("Install Ruby, and optionally a project's gems, caching what each downloads. Use this function instead of the circleci/ruby orb."),
 		kong.UsageOnError(),
 		functionyaml.Embed(),
 	)
