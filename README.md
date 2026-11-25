@@ -27,14 +27,6 @@ jobs:
 `- setup-ruby/install-gems:` runs `install-gems`. Each flag in the tables
 below is a `with:` key, written without its leading `--`.
 
-Where the `functions:` block isn't enabled, such as on CircleCI Server, run the
-same commands with `circleci run` and the function's full name:
-
-```yaml
-- run: circleci run github.com/circleci-functions/setup-ruby@<version> -- --ruby-version 3.4
-- run: circleci run github.com/circleci-functions/setup-ruby@<version> -- install-gems
-```
-
 ## Installing Ruby
 
 With no command, setup-ruby downloads a prebuilt Ruby for the machine it runs
